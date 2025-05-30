@@ -1,6 +1,5 @@
 package saka1029.jline;
 
-import org.jline.reader.impl.DefaultParser;
 import java.io.IOException;
 import org.jline.reader.LineReader;
 import org.jline.reader.LineReaderBuilder;
