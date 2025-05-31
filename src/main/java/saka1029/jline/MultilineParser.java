@@ -9,6 +9,7 @@ public class MultilineParser extends DefaultParser {
     @Override
     public ParsedLine parse(final String line, final int cursor, ParseContext context) {
         ParsedLine pl = super.parse(line, cursor, context);
+        // System.err.println("parse: " + pl.line());
 
         // 読み取りが完了していなければEOFErrorをスローする。
         // こうすると読み取りが継続する。
