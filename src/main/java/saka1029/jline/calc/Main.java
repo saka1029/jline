@@ -1,7 +1,9 @@
 package saka1029.jline.calc;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import org.jline.reader.EOFError;
 import org.jline.reader.EndOfFileException;
@@ -26,77 +28,113 @@ public class Main {
         int eval(Context c);
     }
 
-    static class ExpressionParser implements Parser {
- 
-        static boolean matchParens(String line) {
-            int nest = 0;
-            for (int i = 0, max = line.length(); i < max; ++i)
-                switch (line.charAt(i)) {
-                    case '(':
-                        ++nest;
-                        break;
-                    case ')':
-                        if (nest <= 0)
-                            return false;
-                        --nest;
-                        break;
-                }
-            return nest == 0;
-        }        
+    static EOFError error(String message, Object... args) {
+        return new EOFError(0, 0, message.formatted(args));
+    }
 
-        int[] input;
-        int ch, index = 0;
-        Expression expression;
-
-        EOFError error(String message, Object... args) {
-            return new EOFError(0, 0, message.formatted(args));
-        }
+    static class Scanner {
+        int input[], ch, index;
 
         int get() {
-            return ch = index >= input.length ? -1 : input[index++];
+            return ch = index < input.length ? input[index++] : -1;
         }
 
-        void spaces() {
-            while (Character.isWhitespace(ch))
-                get();
+        StringBuilder sb = new StringBuilder();
+
+        List<String> scan(String input) {
+            this.input = input.codePoints().toArray();
+            this.index = 0;
+            get();
+            List<String> list = new ArrayList<>();
+            L: while (true) {
+                while (Character.isWhitespace(ch))
+                    get();
+                sb.setLength(0);
+                switch (ch) {
+                    case -1:
+                        break L;
+                    case '(': case ')':
+                    case '+': case '-':
+                    case '*': case '/': case '%':
+                        list.add(Character.toString(ch));
+                        get();
+                        break;
+                    default:
+                        if (Character.isDigit(ch)) {
+                            for (; Character.isDigit(ch); get())
+                                sb.appendCodePoint(ch);
+                            list.add(sb.toString());
+                        } else if (Character.isAlphabetic(ch)) {
+                            for (; Character.isAlphabetic(ch) || Character.isDigit(ch); get())
+                                sb.appendCodePoint(ch);
+                            list.add(sb.toString());
+                        } else
+                            throw error("Unknown char '%c'", ch);
+                        break;
+                }
+            }
+            return list;
         }
 
-        Expression number() {
-            int prev = 0;
-            for (; Character.isDigit(ch); get())
-                prev = prev * 10 + Character.digit(ch, 10);
-            int value = prev;
-            return c -> value;
+    }
+
+    static class ExpressionParser implements Parser {
+ 
+        Scanner scanner = new Scanner();
+        List<String> tokens;
+        String token;
+        int index = 0;
+        Expression expression;
+
+        String get() {
+            return token = index >= tokens.size() ? null : tokens.get(index++);
         }
 
         Expression factor() {
-            spaces();
-            if (ch == -1) throw error("No factor");
-            switch (ch) {
-                case '(':
+            if (token == null) throw error("No factor");
+            switch (token) {
+                case "(":
+                    get(); // skip "("
                     Expression e = expression();
-                    spaces();
-                    if (get() != ')')
+                    if (token == null || !token.equals(")"))
                         throw error("')' expected");
                     return e;
                 default:
-                    if (Character.isDigit(ch))
-                        return number();
-                    else
-                        throw error("Unknown char '%c'", ch);
+                    if (Character.isDigit(token.charAt(0))) {
+                        int i = Integer.parseInt(token);
+                        get(); // skip NUMBER
+                        return c -> i;
+                    } else if (Character.isAlphabetic(token.charAt(0))) {
+                        String v = token;
+                        get(); // skip VARIABLE
+                        return c -> c.variables.get(v);
+                    } else
+                        throw error("Unknown token '%s'", token);
             }
         }
 
         Expression term() {
-            spaces();
-            if (ch == -1) throw error("No term");
             Expression e = factor();
             L: while (true) {
-                Expression ee = e;
-                switch (ch) {
-                    case '*': get(); e = c -> ee.eval(c) * factor().eval(c); break;
-                    case '/': get(); e = c -> ee.eval(c) / factor().eval(c); break;
-                    case '%': get(); e = c -> ee.eval(c) % factor().eval(c); break;
+                Expression l = e;
+                if (token == null) break L;
+                Expression r;
+                switch (token) {
+                    case "*":
+                        get();
+                        r = factor();
+                        e = c -> l.eval(c) * r.eval(c);
+                        break;
+                    case "/":
+                        get();
+                        r = factor();
+                        e = c -> l.eval(c) / r.eval(c);
+                        break;
+                    case "%":
+                        get();
+                        r = factor();
+                        e = c -> l.eval(c) % r.eval(c);
+                        break;
                     default: break L;
                 }
             }
@@ -104,12 +142,10 @@ public class Main {
         }
 
         Expression expression() {
-            spaces();
-            if (ch == -1) throw error("No input");
+            if (token == null) throw error("No expression");
             boolean negative = false;
-            if (ch == '-') {
+            if (token.equals("-")) {
                 get();
-                spaces();
                 negative = true;
             }
             Expression e = term();
@@ -119,9 +155,19 @@ public class Main {
             }
             L: while (true) {
                 Expression ee = e;
-                switch (ch) {
-                    case '+': get(); e = c -> ee.eval(c) + term().eval(c); break;
-                    case '-': get(); e = c -> ee.eval(c) - term().eval(c); break;
+                if (token == null) break L;
+                Expression r;
+                switch (token) {
+                    case "+":
+                        get();
+                        r = term();
+                        e = c -> ee.eval(c) + r.eval(c);
+                        break;
+                    case "-":
+                        get();
+                        r = term();
+                        e = c -> ee.eval(c) - r.eval(c);
+                        break;
                     default: break L;
                 }
             }
@@ -131,9 +177,16 @@ public class Main {
         @Override
         public ParsedLine parse(String line, int cursor, ParseContext context) throws SyntaxError {
             // System.out.printf("{parser(\"%s\")}", line);
-            this.input = line.codePoints().toArray();
+            this.tokens = scanner.scan(line);
+            this.index = 0;
             get();
-            this.expression = expression();
+            System.out.println("tokens=" + this.tokens);
+            try {
+                this.expression = expression();
+            } catch (EOFError e) {
+                System.out.println(e);
+                throw e;
+            }
             // if (!matchParens(line))
             //     throw new EOFError(0, 0, line);
             return null;
