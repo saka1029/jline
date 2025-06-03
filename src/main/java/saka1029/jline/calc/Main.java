@@ -1,10 +1,6 @@
 package saka1029.jline.calc;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import org.jline.reader.EOFError;
 import org.jline.reader.EndOfFileException;
 import org.jline.reader.LineReader;
@@ -20,175 +16,100 @@ import org.jline.terminal.TerminalBuilder;
  */
 public class Main {
 
-    static class Context {
-        Map<String, Integer> variables = new HashMap<>();
-    }
-
-    interface Expression {
-        int eval(Context c);
-    }
-
     static EOFError error(String message, Object... args) {
         return new EOFError(0, 0, message.formatted(args));
     }
 
-    static class Scanner {
+    static class ExpressionParser implements Parser {
+ 
         int input[], ch, index;
+        long expression;
 
         int get() {
             return ch = index < input.length ? input[index++] : -1;
         }
 
-        StringBuilder sb = new StringBuilder();
+        void spaces() {
+            while (Character.isWhitespace(ch))
+                get();
+        }
 
-        List<String> scan(String input) {
-            this.input = input.codePoints().toArray();
-            this.index = 0;
-            get();
-            List<String> list = new ArrayList<>();
-            L: while (true) {
-                while (Character.isWhitespace(ch))
+        boolean eat(int expected) {
+            if (ch == expected) {
+                get();
+                return true;
+            }
+            return false;
+        }
+
+        long factor() {
+            spaces();
+            if (ch == -1)
+                throw error("Unexpected end");
+            else if (eat('(')) {
+                long value = expression();
+                if (!eat(')'))
+                    throw error("')' expected");
+                return value;
+            } else if (Character.isDigit(ch)) {
+                long value = 0;
+                do {
+                    value = value * 10 + Character.digit(ch, 10);
                     get();
-                sb.setLength(0);
-                switch (ch) {
-                    case -1:
-                        break L;
-                    case '(': case ')':
-                    case '+': case '-':
-                    case '*': case '/': case '%':
-                        list.add(Character.toString(ch));
-                        get();
-                        break;
-                    default:
-                        if (Character.isDigit(ch)) {
-                            for (; Character.isDigit(ch); get())
-                                sb.appendCodePoint(ch);
-                            list.add(sb.toString());
-                        } else if (Character.isAlphabetic(ch)) {
-                            for (; Character.isAlphabetic(ch) || Character.isDigit(ch); get())
-                                sb.appendCodePoint(ch);
-                            list.add(sb.toString());
-                        } else
-                            throw error("Unknown char '%c'", ch);
-                        break;
-                }
-            }
-            return list;
+                } while (Character.isDigit(ch));
+                return value;
+            } else
+                throw error("Unknown char '%c'", ch);
         }
 
-    }
-
-    static class ExpressionParser implements Parser {
- 
-        Scanner scanner = new Scanner();
-        List<String> tokens;
-        String token;
-        int index = 0;
-        Expression expression;
-
-        String get() {
-            return token = index >= tokens.size() ? null : tokens.get(index++);
-        }
-
-        Expression factor() {
-            if (token == null) throw error("No factor");
-            switch (token) {
-                case "(":
-                    get(); // skip "("
-                    Expression e = expression();
-                    if (token == null || !token.equals(")"))
-                        throw error("')' expected");
-                    return e;
-                default:
-                    if (Character.isDigit(token.charAt(0))) {
-                        int i = Integer.parseInt(token);
-                        get(); // skip NUMBER
-                        return c -> i;
-                    } else if (Character.isAlphabetic(token.charAt(0))) {
-                        String v = token;
-                        get(); // skip VARIABLE
-                        return c -> c.variables.get(v);
-                    } else
-                        throw error("Unknown token '%s'", token);
-            }
-        }
-
-        Expression term() {
-            Expression e = factor();
-            L: while (true) {
-                Expression l = e;
-                if (token == null) break L;
-                Expression r;
-                switch (token) {
-                    case "*":
-                        get();
-                        r = factor();
-                        e = c -> l.eval(c) * r.eval(c);
-                        break;
-                    case "/":
-                        get();
-                        r = factor();
-                        e = c -> l.eval(c) / r.eval(c);
-                        break;
-                    case "%":
-                        get();
-                        r = factor();
-                        e = c -> l.eval(c) % r.eval(c);
-                        break;
-                    default: break L;
-                }
+        long term() {
+            long e = factor();
+            while (true) {
+                spaces();
+                if (eat('*'))
+                    e *= factor();
+                else if (eat('/'))
+                    e /= factor();
+                else if (eat('%'))
+                    e %= factor();
+                else
+                    break;
             }
             return e;
         }
 
-        Expression expression() {
-            if (token == null) throw error("No expression");
+        long expression() {
             boolean negative = false;
-            if (token.equals("-")) {
-                get();
+            spaces();
+            if (eat('-'))
                 negative = true;
-            }
-            Expression e = term();
-            if (negative) {
-                Expression ee = e;
-                e = c -> -ee.eval(c);
-            }
-            L: while (true) {
-                Expression ee = e;
-                if (token == null) break L;
-                Expression r;
-                switch (token) {
-                    case "+":
-                        get();
-                        r = term();
-                        e = c -> ee.eval(c) + r.eval(c);
-                        break;
-                    case "-":
-                        get();
-                        r = term();
-                        e = c -> ee.eval(c) - r.eval(c);
-                        break;
-                    default: break L;
-                }
+            spaces();
+            long e = term();
+            if (negative)
+                e = -e;
+            while (true) {
+                spaces();
+                if (eat('+'))
+                    e += term();
+                else if (eat('-'))
+                    e -= term();
+                else
+                    break;
             }
             return e;
         }
 
         @Override
         public ParsedLine parse(String line, int cursor, ParseContext context) throws SyntaxError {
-            // System.out.printf("{parser(\"%s\")}", line);
-            this.tokens = scanner.scan(line);
+            this.input = line.codePoints().toArray();
             this.index = 0;
             get();
-            System.out.println("tokens=" + this.tokens);
             try {
                 this.expression = expression();
             } catch (EOFError e) {
-                System.out.println(e);
+                // System.out.println(e);
                 throw e;
             }
-            // if (!matchParens(line))
-            //     throw new EOFError(0, 0, line);
             return null;
         }
 
@@ -209,13 +130,10 @@ public class Main {
         lineReader.setVariable(LineReader.SECONDARY_PROMPT_PATTERN, "      >   ");;
 
         // REPL
-        Context context = new Context();
         while (true) {
             try {
-                String line = lineReader.readLine("input > ");
-                if (line.equals(".exit"))
-                    break;
-                System.out.println(parser.expression.eval(context));
+                lineReader.readLine("input > ");
+                System.out.println(parser.expression);
             } catch (EndOfFileException e) {
                 break;
             }
