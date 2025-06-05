@@ -10,6 +10,9 @@ import org.jline.reader.Parser;
 import org.jline.reader.SyntaxError;
 import org.jline.terminal.Terminal;
 import org.jline.terminal.TerminalBuilder;
+import org.jline.utils.AttributedString;
+import org.jline.utils.AttributedStringBuilder;
+import org.jline.utils.AttributedStyle;
 
 /**
  * @see https://takemikami.com/2019/0302-javacuijline.html
@@ -92,7 +95,7 @@ public class Main {
             return e;
         }
 
-        String result;
+        AttributedString result;
 
         /**
          * SYNTAX:
@@ -110,11 +113,15 @@ public class Main {
             this.index = 0;
             get();
             try {
-                this.result = "" + expression();
+                this.result = new AttributedString("" + expression());
             } catch (EOFError e) {
                 throw e;
             } catch (SyntaxError s) {
-                this.result = s.getMessage();
+                this.result = new AttributedStringBuilder()
+                    .style(AttributedStyle.DEFAULT.foreground(AttributedStyle.RED))
+                    .append(s.getMessage())
+                    .style(AttributedStyle.DEFAULT.foregroundDefault())
+                    .toAttributedString();
             }
             return null;
         }
