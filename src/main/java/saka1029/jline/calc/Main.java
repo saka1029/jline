@@ -35,6 +35,7 @@ public class Main {
         }
 
         boolean eat(int expected) {
+            spaces();
             if (ch == expected) {
                 get();
                 return true;
@@ -43,10 +44,9 @@ public class Main {
         }
 
         long factor() {
-            spaces();
-            if (ch == -1)
+            if (eat(-1)) {
                 throw error("Unexpected end");
-            else if (eat('(')) {
+            } else if (eat('(')) {
                 long value = expression();
                 if (!eat(')'))
                     throw error("')' expected");
@@ -59,13 +59,12 @@ public class Main {
                 } while (Character.isDigit(ch));
                 return value;
             } else
-                throw error("Unknown char '%c'", ch);
+                throw new SyntaxError(0, 0, "Unknown char '%c'".formatted(ch));
         }
 
         long term() {
             long e = factor();
-            while (true) {
-                spaces();
+            while (true)
                 if (eat('*'))
                     e *= factor();
                 else if (eat('/'))
@@ -74,31 +73,36 @@ public class Main {
                     e %= factor();
                 else
                     break;
-            }
             return e;
         }
 
         long expression() {
             boolean negative = false;
-            spaces();
             if (eat('-'))
                 negative = true;
-            spaces();
             long e = term();
             if (negative)
                 e = -e;
-            while (true) {
-                spaces();
+            while (true)
                 if (eat('+'))
                     e += term();
                 else if (eat('-'))
                     e -= term();
                 else
                     break;
-            }
             return e;
         }
 
+        /**
+         * SYNTAX:
+         * <ul>
+         * <li>expression = [ '-' ] term { ( '+' | '-' ) term }</li>
+         * <li>term       = factor { ( '*' | '/' | '%' ) factor }</li>
+         * <li>factor     = '(' expression ')' | number</li>
+         * <li>number     = { DIGIT }</li>
+         * <li>DIGIT      = '0' ... '9'</li>
+         * </ul>
+         */
         @Override
         public ParsedLine parse(String line, int cursor, ParseContext context) throws SyntaxError {
             this.input = line.codePoints().toArray();
@@ -106,9 +110,14 @@ public class Main {
             get();
             try {
                 this.expression = expression();
+                System.out.println();
+                System.out.print(this.expression);
             } catch (EOFError e) {
-                // System.out.println(e);
                 throw e;
+            } catch (SyntaxError s) {
+                System.out.println();
+                System.out.print(s.getMessage());
+                throw s;
             }
             return null;
         }
@@ -133,7 +142,7 @@ public class Main {
         while (true) {
             try {
                 lineReader.readLine("input > ");
-                System.out.println(parser.expression);
+                // System.out.println(parser.expression);
             } catch (EndOfFileException e) {
                 break;
             }
