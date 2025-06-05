@@ -23,7 +23,6 @@ public class Main {
     static class ExpressionParser implements Parser {
  
         int input[], ch, index;
-        long expression;
 
         int get() {
             return ch = index < input.length ? input[index++] : -1;
@@ -93,6 +92,8 @@ public class Main {
             return e;
         }
 
+        String result;
+
         /**
          * SYNTAX:
          * <ul>
@@ -109,15 +110,11 @@ public class Main {
             this.index = 0;
             get();
             try {
-                this.expression = expression();
-                System.out.println();
-                System.out.print(this.expression);
+                this.result = "" + expression();
             } catch (EOFError e) {
                 throw e;
             } catch (SyntaxError s) {
-                System.out.println();
-                System.out.print(s.getMessage());
-                throw s;
+                this.result = s.getMessage();
             }
             return null;
         }
@@ -142,7 +139,7 @@ public class Main {
         while (true) {
             try {
                 lineReader.readLine("input > ");
-                // System.out.println(parser.expression);
+                lineReader.printAbove(parser.result);
             } catch (EndOfFileException e) {
                 break;
             }
