@@ -8,6 +8,7 @@ import org.jline.reader.LineReaderBuilder;
 import org.jline.reader.ParsedLine;
 import org.jline.reader.Parser;
 import org.jline.reader.SyntaxError;
+import org.jline.reader.UserInterruptException;
 import org.jline.terminal.Terminal;
 import org.jline.terminal.TerminalBuilder;
 import org.jline.utils.AttributedString;
@@ -147,8 +148,10 @@ public class Main {
             try {
                 lineReader.readLine("input > ");
                 lineReader.printAbove(parser.result);
-            } catch (EndOfFileException e) {
+            } catch (EndOfFileException e) {        // catch Ctrl-D
                 break;
+            } catch (UserInterruptException e) {    // catch Ctrl-C
+                lineReader.printAbove("interrupt!");
             }
 
         }
