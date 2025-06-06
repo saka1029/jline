@@ -1,6 +1,7 @@
 package saka1029.jline.calc;
 
 import java.io.IOException;
+import java.text.AttributedCharacterIterator.Attribute;
 import org.jline.reader.EOFError;
 import org.jline.reader.EndOfFileException;
 import org.jline.reader.LineReader;
@@ -22,6 +23,14 @@ public class Main {
 
     static EOFError error(String message, Object... args) {
         return new EOFError(0, 0, message.formatted(args));
+    }
+
+    static AttributedString color(String s, int style) {
+        return new AttributedStringBuilder()
+            .style(AttributedStyle.DEFAULT.foreground(style))
+            .append(s)
+            .style(AttributedStyle.DEFAULT.foregroundDefault())
+            .toAttributedString();
     }
 
     static class ExpressionParser implements Parser {
@@ -118,16 +127,14 @@ public class Main {
             } catch (EOFError e) {
                 throw e;
             } catch (SyntaxError s) {
-                this.result = new AttributedStringBuilder()
-                    .style(AttributedStyle.DEFAULT.foreground(AttributedStyle.RED))
-                    .append(s.getMessage())
-                    .style(AttributedStyle.DEFAULT.foregroundDefault())
-                    .toAttributedString();
+                this.result = color(s.getMessage(), AttributedStyle.RED);
             }
             return null;
         }
 
     }
+
+    static final AttributedString INTERRUPTED = color("Interrupted!", AttributedStyle.RED);
 
     public static void main(String[] args) throws IOException {
         // JLine terminal の準備
@@ -151,7 +158,7 @@ public class Main {
             } catch (EndOfFileException e) {        // catch Ctrl-D
                 break;
             } catch (UserInterruptException e) {    // catch Ctrl-C
-                lineReader.printAbove("interrupt!");
+                lineReader.printAbove(INTERRUPTED);
             }
 
         }
