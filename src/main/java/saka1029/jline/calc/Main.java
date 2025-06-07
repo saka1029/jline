@@ -1,7 +1,6 @@
 package saka1029.jline.calc;
 
 import java.io.IOException;
-import java.text.AttributedCharacterIterator.Attribute;
 import org.jline.reader.EOFError;
 import org.jline.reader.EndOfFileException;
 import org.jline.reader.LineReader;
