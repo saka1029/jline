@@ -1,7 +1,6 @@
 package saka1029.jline.calc;
 
 import java.io.IOException;
-import java.text.AttributedCharacterIterator.Attribute;
 import org.jline.reader.EOFError;
 import org.jline.reader.EndOfFileException;
 import org.jline.reader.LineReader;
@@ -89,12 +88,7 @@ public class Main {
         }
 
         long expression() {
-            boolean negative = false;
-            if (eat('-'))
-                negative = true;
-            long e = term();
-            if (negative)
-                e = -e;
+            long e = eat('-') ? -term() : term();
             while (true)
                 if (eat('+'))
                     e += term();
