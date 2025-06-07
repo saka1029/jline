@@ -60,6 +60,13 @@ public class Parser {
         get();
     }
 
+    BigDecimal paren() {
+        BigDecimal result = expression();
+        if (!eat(')'))
+            throw error("')' expected");
+        return result;
+    }
+
     BigDecimal number() {
         sb.setLength(0);
         while (isDigit(ch))
@@ -82,14 +89,11 @@ public class Parser {
     }
 
     BigDecimal factor() {
-        if (eat('(')) {
-            BigDecimal result = expression();
-            if (!eat(')'))
-                throw error("')' expected");
-            return result;
-        } else if (isDigit(ch)) {
+        if (eat('('))
+            return paren();
+        else if (isDigit(ch))
             return number();
-        } else
+        else
             throw error("Unexpected char %s", characterString(ch));
     }
 
